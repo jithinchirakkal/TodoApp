@@ -13,12 +13,22 @@ class TodoController extends Controller
      */
     public function index()
     {
-        // $todos = Todo::all();
-        $todos = Todo::orderBy('order')->get();
-        // $todos = Todo::latest();
-        return Inertia::render('Dashboard', [
-            'todos' => $todos
-        ]);
+        $columns = [
+            'pending' => [
+                'title' => 'To Do',
+                'items' => Todo::where('status', 'pending')->get(),
+            ],
+            'in_progress' => [
+                'title' => 'In Progress',
+                'items' => Todo::where('status', 'in_progress')->get(),
+            ],
+            'done' => [
+                'title' => 'Done',
+                'items' => Todo::where('status', 'done')->get(),
+            ],
+        ];
+
+        return Inertia::render('Dashboard', compact('columns'));
     }
 
     /**
@@ -40,14 +50,13 @@ class TodoController extends Controller
             'Items' => 'required|string|max:255',
         ]);
 
-        $lastOrder = Todo::max('order');
-
         Todo::create([
             'Items' => $request->Items,
-            'order' => $lastOrder + 1,
+            'status' => 'todo',
         ]);
 
-        return redirect()->route('todos.list');
+        return redirect()->route('dashboard');
+
     }
 
     /**
@@ -78,24 +87,14 @@ class TodoController extends Controller
             'Items' => 'required|string|max:255',
         ]);
 
-        $todo->update($request->all());
-
-        return redirect()->route('todos.list');
-    }
-
-
-    public function updateOrderAndStatus(Request $request)
-{
-    foreach ($request->todos as $todoData) {
-        $todo = Todo::find($todoData['id']);
+        // $todo->update($request->all());
         $todo->update([
-            'order' => $todoData['order'],
-            'status' => $todoData['status']
+            'Items' => $request->Items,
+            'status' => $request->status, // Handle status change
         ]);
+        return redirect()->route('dashboard');
+        // return redirect()->route('todos.list');
     }
-    return redirect()->route('todos.list');
-    // return response()->json(['status' => 'success']);
-}
 
 
     // public function reorder(Request $request)
@@ -127,6 +126,22 @@ class TodoController extends Controller
     {
         $todo->delete();
 
-        return redirect()->route('todos.list');
+        return redirect()->route('dashboard');
+    }
+    
+    public function reorder(Request $request)
+    {
+        $columns = $request->columns;
+
+        foreach ($columns as $status => $column) {
+            foreach ($column['items'] as $index => $item) {
+                Todo::where('id', $item['id'])->update([
+                    'status' => $status,
+                    'order' => $index,
+                ]);
+            }
+        }
+        return redirect()->route('dashboard');
+        // return response()->json(['status' => 'success']);
     }
 }
